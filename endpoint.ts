@@ -1,59 +1,124 @@
-// A) Setup Auth0 log streaming as follows:
-// 1. Go to your Auth0 dashboard and navigate to Monitoring > Streams.
-// 2. Click on the "Create Stream" button.
-// 3. Select "Custom Webhook" as the stream type.
-// 4. Enter a name for the stream.
-// 5. Enter the URL of this endpoint as the "Payload URL".
-// 6. Select "JSON Object" as the "Content Format".
-// 7. Select all categories you want to forward to Discord in "Filter by Category".
-// 8. Click on the "Create" button.
+// Adjust this value based on your cron job interval set in GitHub Actions.
+const CRON_INTERVAL_IN_MINUTES = 60 * 6;
 
-// B) Get the Auth0 log base URL as follows:
+// Get the Auth0 log base URL as follows:
 // 1. Go to your Auth0 dashboard.
 // 2. Navigate to Monitoring > Logs.
 // 3. Click on any log entry and copy the URL (excluding the log ID).
 // Example URL: https://manage.auth0.com/dashboard/us/dev-jcvyvq5be47ork05/logs/
-const AUTH0_LOG_BASE_URL = "";
+const AUTH0_LOG_BASE_URL =
+  "https://manage.auth0.com/dashboard/us/dev-jcvyvq5be47ork05/logs/";
 
-// C) Get the Discord Webhook URL as follows:
+// Get the Discord Webhook URL as follows:
 // 1. Go to your Discord server settings.
 // 2. Navigate to Integrations > Webhooks.
 // 3. Create a new webhook and copy its URL.
 // Example URL: https://discord.com/api/webhooks/1147473308309262346/OfZnSAleU4UHetaYhI1_YAhPmrE3vEhIebewYRB6Pa5SWI1YWlU4GAEOBGKwFblXNwnH/
-const DISCORD_WEBHOOK_URL = "";
+const DISCORD_WEBHOOK_URL =
+  "https://discord.com/api/webhooks/1147473308309262346/OfZnSAleU4UHetaYhI1_YAhPmrE3vEhIebewYRB6Pa5SWI1YWlU4GAEOBGKwFblXNwnH";
 
-type StreamRequest = {
-  body: {
-    logs: {
-      log_id: string;
-      data: {
-        date: string;
-        type: string;
-        description: string;
-        client_id: string;
-        client_name: string;
-        ip: string;
-        user_agent: string;
-        user_id: string;
-        user_name: string;
-        log_id: string;
-      };
-    }[];
-  };
+// Create a new auth0 app as follows:
+// 1. Go to your Auth0 dashboard.
+// 2. Navigate to Applications > Applications.
+// 3. Click on "Create Application".
+// 4. Click on "Machine to Machine Application" and click "Create".
+// 5. Select "Auth0 Management API".
+// 6. Filter for "read:logs" and "read:logs_users" and enable them.
+// 7. Click on "Authorize".
+// 8. Check quickstart example and copy/paste its values here:
+const TOKEN_URL = "https://dev-jcvyvq5be47ork05.us.auth0.com/oauth/token";
+const CLIENT_ID = "ECBZJwmH9kCTWwdc27r3l2BbyyNNNIrf";
+const CLIENT_SECRET =
+  "WokueLtD92MFPgH-pjEjTV65A9JQJgKMMeJHUNcERgmD6vhcPRDgfDdcd1xmjUhw";
+const AUDIENCE = "https://dev-jcvyvq5be47ork05.us.auth0.com/api/v2/";
+
+// Find all log types here:
+// https://auth0.com/docs/deploy-monitor/logs/log-event-type-codes
+const ERROR_TYPES = [
+  "f",
+  "fapi",
+  "fc",
+  "fce",
+  "fco",
+  "fcoa",
+  "fcp",
+  "fcph",
+  "fcpn",
+  "fcpr",
+  "fcpro",
+  "fcu",
+  "fd",
+  "fdeac",
+  "fdeaz",
+  "fdecc",
+  "fdu",
+  "feacft",
+  "feccft",
+  "fede",
+  "fens",
+  "feoobft",
+  "feotpft",
+  "fepft",
+  "fepotpft",
+  "fercft",
+  "fertft",
+  "ferrt",
+  "fi",
+  "flo",
+  "fn",
+  "fp",
+  "fs",
+  "fsa",
+  "fu",
+  "fui",
+  "fv",
+  "fvr",
+  "api_limit",
+  "gd_auth_failed",
+  "gd_auth_rejected",
+  "gd_otp_rate_limit_exceed",
+  "gd_recovery_failed",
+  "gd_recovery_rate_limit_exceed",
+  "gd_send_sms_failure",
+  "gd_send_voice_failure",
+  "gd_start_enroll_failed",
+  "gd_webauthn_challenge_failed",
+  "limit_mu",
+  "limit_wc",
+  "limit_sul",
+];
+
+type LogEntry = {
+  date: string;
+  type: string;
+  description: string;
+  connection_id: string;
+  client_id: string;
+  client_name: string;
+  ip: string;
+  user_agent: string;
+  hostname: string;
+  user_id: string;
+  user_name: string;
+  audience: string;
+  scope: string | null;
+  log_id: string;
+  _id: string;
+  isMobile: boolean;
 };
 
-function apiHandler(request: StreamRequest) {
-  const { logs } = request.body;
+async function apiHandler() {
+  const logs = await fetchRecentErrorLogs();
 
   const discordMessage = logs
     .map((entry) => {
-      const description =
-        entry.data.description ?? "Could not find a description.";
-      const type = entry.data.type;
-      const userEmail = entry.data.user_name;
+      const date = new Date(entry.date).toUTCString();
+      const description = entry.description ?? "Could not find a description.";
+      const type = entry.type;
+      const userEmail = entry.user_name;
       const url = `${AUTH0_LOG_BASE_URL}${entry.log_id}`;
 
-      return `Description: ${description}\nType: ${type}\nUser email: ${userEmail}\nUrl: ${url}`;
+      return `Date: ${date}\nDescription: ${description}\nType: ${type}\nUser email: ${userEmail}\nUrl: ${url}`;
     })
     .join("\n\n");
 
@@ -68,6 +133,74 @@ function apiHandler(request: StreamRequest) {
   });
 }
 
+async function fetchRecentErrorLogsRequest(token: string) {
+  const url = `${AUDIENCE}logs`;
+
+  // Calculate start time based on the current time and the CRON interval
+  const startTime = new Date(
+    new Date().getTime() - CRON_INTERVAL_IN_MINUTES * 60 * 1000
+  );
+
+  // Convert start time to ISO string format
+  const startTimeISO = startTime.toISOString();
+
+  // Construct the query
+  const query = `(type:${ERROR_TYPES.join(
+    " OR type:"
+  )}) AND date:[${startTimeISO} TO *]`;
+
+  const headers = {
+    Accept: "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+
+  return fetch(`${url}?q=${encodeURIComponent(query)}&search_engine=v3`, {
+    method: "GET",
+    headers: headers,
+  });
+}
+
+async function fetchRecentErrorLogs() {
+  // TODO:
+  // Get previous token from storage
+  // OR
+  // Always get a new token on each request
+  const token =
+    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im93YndZMTlHT2RVY0RiRXhhbGRDNyJ9.eyJpc3MiOiJodHRwczovL2Rldi1qY3Z5dnE1YmU0N29yazA1LnVzLmF1dGgwLmNvbS8iLCJzdWIiOiJFQ0JaSndtSDlrQ1RXd2RjMjdyM2wyQmJ5eU5OTklyZkBjbGllbnRzIiwiYXVkIjoiaHR0cHM6Ly9kZXYtamN2eXZxNWJlNDdvcmswNS51cy5hdXRoMC5jb20vYXBpL3YyLyIsImlhdCI6MTY5MzkxMTc2MSwiZXhwIjoxNjkzOTk4MTYxLCJhenAiOiJFQ0JaSndtSDlrQ1RXd2RjMjdyM2wyQmJ5eU5OTklyZiIsInNjb3BlIjoicmVhZDpsb2dzIHJlYWQ6bG9nc191c2VycyIsImd0eSI6ImNsaWVudC1jcmVkZW50aWFscyJ9.AXJaT_DkBpCLihfidRqwqbHIU9r0tos_Kf84lDo1OqL8k_SWI1UUwqr7uj1NH1TPCojPZlSGf_2GIUdwtB-MIvTBVnjGMyMpuYCStuvq9SzDQ-Flq5T4sf6ERwGYVCa2D7iEwSeKfyeirH66xv3NjYmdS4opWzAoxdR334nZgCvI1lzWkHD2GLEDBTZbzz4N8rf92FJvBZelWSGIZtCOkGR328bfjgij0SUm0TnTZtPYt4twaMcrwRmHKAyK3dvf-v2knvPTHmFeBE1asKAfXOZrrdaoQ0-kkuDWyWgKWKvV4jOogfQmvppK6wB4Xle0jBIIUdcMwCfs-eSnlBesnA";
+
+  let response = await fetchRecentErrorLogsRequest(token);
+  if (response.status === 401) {
+    // If the token is expired, get a new one and retry
+    const newToken = await getNewAccessToken();
+    response = await fetchRecentErrorLogsRequest(newToken);
+  }
+
+  return (await response.json()) as LogEntry[];
+}
+
+async function getNewAccessToken() {
+  const url = TOKEN_URL;
+  const headers = {
+    "Content-Type": "application/json",
+  };
+  const body = JSON.stringify({
+    client_id: CLIENT_ID,
+    client_secret: CLIENT_SECRET,
+    audience: AUDIENCE,
+    grant_type: "client_credentials",
+  });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: headers,
+    body: body,
+  });
+
+  const responseJson = (await response.json()) as { access_token: string };
+  console.log(responseJson);
+  return responseJson.access_token;
+}
+
 // ************************************
 // NextJs API route boilerplate below.
 // Replace this with your own API route.
@@ -78,6 +211,28 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  await apiHandler(req);
+  await apiHandler();
   return res.status(200).json({ success: true });
 }
+
+
+// ************************************
+// GitHub Actions boilerplate below.
+// Create a new file in .github/workflows/auth0-logs-to-discord.yml and add the following:
+// ************************************
+
+// name: Auth0 to Discord
+
+// on:
+//   schedule:
+//     # For changing the schedule, see https://crontab.guru/examples.html
+//     - cron: '0 */6 * * *' # Every 6 hours
+
+// jobs:
+//   make-request:
+//     runs-on: ubuntu-latest
+
+//     steps:
+//     - name: Auth0 to Discord
+//       run: |
+//         curl -X GET "https://your-endpoint-url-here.com"
