@@ -1,14 +1,6 @@
 // Adjust this value based on your cron job interval set in GitHub Actions.
 const CRON_INTERVAL_IN_MINUTES = 60 * 6;
 
-// Get the Auth0 log base URL as follows:
-// 1. Go to your Auth0 dashboard.
-// 2. Navigate to Monitoring > Logs.
-// 3. Click on any log entry and copy the URL (excluding the log ID).
-// Example URL: https://manage.auth0.com/dashboard/us/dev-jcvyvq5be47ork05/logs/
-const AUTH0_LOG_BASE_URL =
-  "https://manage.auth0.com/dashboard/us/dev-jcvyvq5be47ork05/logs/";
-
 // Get the Discord Webhook URL as follows:
 // 1. Go to your Discord server settings.
 // 2. Navigate to Integrations > Webhooks.
@@ -17,7 +9,15 @@ const AUTH0_LOG_BASE_URL =
 const DISCORD_WEBHOOK_URL =
   "https://discord.com/api/webhooks/1147473308309262346/OfZnSAleU4UHetaYhI1_YAhPmrE3vEhIebewYRB6Pa5SWI1YWlU4GAEOBGKwFblXNwnH";
 
-// Create a new auth0 app as follows:
+// Get the Auth0 log base URL as follows:
+// 1. Go to your Auth0 dashboard.
+// 2. Navigate to Monitoring > Logs.
+// 3. Click on any log entry and copy the URL (excluding the log ID).
+// Example URL: https://manage.auth0.com/dashboard/us/dev-jcvyvq5be47ork05/logs/
+const AUTH0_LOG_BASE_URL =
+  "https://manage.auth0.com/dashboard/us/dev-jcvyvq5be47ork05/logs/";
+
+// Create a new Auth0 app as follows:
 // 1. Go to your Auth0 dashboard.
 // 2. Navigate to Applications > Applications.
 // 3. Click on "Create Application".
