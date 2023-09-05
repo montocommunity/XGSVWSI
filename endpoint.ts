@@ -110,27 +110,33 @@ type LogEntry = {
 async function apiHandler() {
   const logs = await fetchRecentErrorLogs();
 
-  const discordMessage = logs
-    .map((entry) => {
-      const date = new Date(entry.date).toUTCString();
-      const description = entry.description ?? "Could not find a description.";
-      const type = entry.type;
-      const userEmail = entry.user_name;
-      const url = `${AUTH0_LOG_BASE_URL}${entry.log_id}`;
+  const discordMessages = logs.map((entry) => {
+    const date = new Date(entry.date).toUTCString();
+    const description = entry.description ?? "Could not find a description.";
+    const type = entry.type;
+    const userEmail = entry.user_name;
+    const url = `${AUTH0_LOG_BASE_URL}${entry.log_id}`;
 
-      return `Date: ${date}\nDescription: ${description}\nType: ${type}\nUser email: ${userEmail}\nUrl: ${url}`;
-    })
-    .join("\n\n");
-
-  return fetch(DISCORD_WEBHOOK_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      content: discordMessage,
-    }),
+    return `Date: ${date}\nDescription: ${description}\nType: ${type}\nUser email: ${userEmail}\nUrl: ${url}`;
   });
+
+  // Split up into multiple messages to avoid Discord character limit (2000 characters)
+  for (let i = 0; i < discordMessages.length; i += 5) {
+    const messages = discordMessages.slice(i, i + 5).join("\n\n");
+
+    await fetch(DISCORD_WEBHOOK_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content: messages,
+      }),
+    });
+
+    // wait 500ms to avoid Discord rate limit
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
 }
 
 async function fetchRecentErrorLogsRequest(token: string) {
@@ -161,19 +167,17 @@ async function fetchRecentErrorLogsRequest(token: string) {
 }
 
 async function fetchRecentErrorLogs() {
-  // TODO:
-  // Get previous token from storage
-  // OR
-  // Always get a new token on each request
-  const token =
-    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6Im93YndZMTlHT2RVY0RiRXhhbGRDNyJ9.eyJpc3MiOiJodHRwczovL2Rldi1qY3Z5dnE1YmU0N29yazA1LnVzLmF1dGgwLmNvbS8iLCJzdWIiOiJFQ0JaSndtSDlrQ1RXd2RjMjdyM2wyQmJ5eU5OTklyZkBjbGllbnRzIiwiYXVkIjoiaHR0cHM6Ly9kZXYtamN2eXZxNWJlNDdvcmswNS51cy5hdXRoMC5jb20vYXBpL3YyLyIsImlhdCI6MTY5MzkxMTc2MSwiZXhwIjoxNjkzOTk4MTYxLCJhenAiOiJFQ0JaSndtSDlrQ1RXd2RjMjdyM2wyQmJ5eU5OTklyZiIsInNjb3BlIjoicmVhZDpsb2dzIHJlYWQ6bG9nc191c2VycyIsImd0eSI6ImNsaWVudC1jcmVkZW50aWFscyJ9.AXJaT_DkBpCLihfidRqwqbHIU9r0tos_Kf84lDo1OqL8k_SWI1UUwqr7uj1NH1TPCojPZlSGf_2GIUdwtB-MIvTBVnjGMyMpuYCStuvq9SzDQ-Flq5T4sf6ERwGYVCa2D7iEwSeKfyeirH66xv3NjYmdS4opWzAoxdR334nZgCvI1lzWkHD2GLEDBTZbzz4N8rf92FJvBZelWSGIZtCOkGR328bfjgij0SUm0TnTZtPYt4twaMcrwRmHKAyK3dvf-v2knvPTHmFeBE1asKAfXOZrrdaoQ0-kkuDWyWgKWKvV4jOogfQmvppK6wB4Xle0jBIIUdcMwCfs-eSnlBesnA";
+  // TODO: Fetch this from a database instead of fetching it every time
+  const token = await getNewAccessToken();
 
-  let response = await fetchRecentErrorLogsRequest(token);
-  if (response.status === 401) {
-    // If the token is expired, get a new one and retry
-    const newToken = await getNewAccessToken();
-    response = await fetchRecentErrorLogsRequest(newToken);
-  }
+  const response = await fetchRecentErrorLogsRequest(token);
+
+  // Refetch logic:
+  // if (response.status === 401) {
+  //   // If the token is expired, get a new one, retry and save it for next time
+  //   const newToken = await getNewAccessToken();
+  //   response = await fetchRecentErrorLogsRequest(newToken);
+  // }
 
   return (await response.json()) as LogEntry[];
 }
@@ -197,7 +201,7 @@ async function getNewAccessToken() {
   });
 
   const responseJson = (await response.json()) as { access_token: string };
-  console.log(responseJson);
+
   return responseJson.access_token;
 }
 
@@ -214,7 +218,6 @@ export default async function handler(
   await apiHandler();
   return res.status(200).json({ success: true });
 }
-
 
 // ************************************
 // GitHub Actions boilerplate below.
