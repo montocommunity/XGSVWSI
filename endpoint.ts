@@ -32,7 +32,8 @@ const CLIENT_SECRET =
   "WokueLtD92MFPgH-pjEjTV65A9JQJgKMMeJHUNcERgmD6vhcPRDgfDdcd1xmjUhw";
 const AUDIENCE = "https://dev-jcvyvq5be47ork05.us.auth0.com/api/v2/";
 
-// Find all log types here:
+// Error types to fetch from Auth0 logs.
+// Can be adjusted as needed.
 // https://auth0.com/docs/deploy-monitor/logs/log-event-type-codes
 const ERROR_TYPES = [
   "f",
