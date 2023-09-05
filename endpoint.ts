@@ -221,7 +221,7 @@ export default async function handler(
 }
 
 // ************************************
-// GitHub Actions boilerplate below.
+// GitHub Actions CRON job boilerplate below.
 // Create a new file in .github/workflows/auth0-logs-to-discord.yml and add the following:
 // ************************************
 
