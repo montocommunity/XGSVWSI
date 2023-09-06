@@ -1,5 +1,5 @@
-// Adjust this value based on your cron job interval set in GitHub Actions.
-const CRON_INTERVAL_IN_MINUTES = 60 * 6;
+// This value needs to match the CRON interval in the GitHub Actions workflow file.
+const CRON_INTERVAL_IN_MINUTES = 60 * 3;
 
 // Get the Discord Webhook URL as follows:
 // 1. Go to your Discord server settings.
@@ -143,15 +143,14 @@ async function apiHandler() {
 async function fetchRecentErrorLogsRequest(token: string) {
   const url = `${AUDIENCE}logs`;
 
-  // Calculate start time based on the current time and the CRON interval
   const startTime = new Date(
     new Date().getTime() - CRON_INTERVAL_IN_MINUTES * 60 * 1000
   );
 
-  // Convert start time to ISO string format
   const startTimeISO = startTime.toISOString();
 
-  // Construct the query
+  // See Auth0 docs for more info on query syntax:
+  // https://auth0.com/docs/deploy-monitor/logs/log-search-query-syntax
   const query = `(type:${ERROR_TYPES.join(
     " OR type:"
   )}) AND date:[${startTimeISO} TO *]`;
@@ -168,18 +167,8 @@ async function fetchRecentErrorLogsRequest(token: string) {
 }
 
 async function fetchRecentErrorLogs() {
-  // TODO: Fetch this from a database instead of fetching it every time
   const token = await getNewAccessToken();
-
   const response = await fetchRecentErrorLogsRequest(token);
-
-  // Refetch logic:
-  // if (response.status === 401) {
-  //   // If the token is expired, get a new one, retry and save it for next time
-  //   const newToken = await getNewAccessToken();
-  //   response = await fetchRecentErrorLogsRequest(newToken);
-  // }
-
   return (await response.json()) as LogEntry[];
 }
 
@@ -216,6 +205,9 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // optional:
+  // add a secret to your endpoint and check for it here
+  // if (req.query.secret !== "my-secret") return res.status(401).json({ success: false });
   await apiHandler();
   return res.status(200).json({ success: true });
 }
@@ -230,7 +222,7 @@ export default async function handler(
 // on:
 //   schedule:
 //     # For changing the schedule, see https://crontab.guru/examples.html
-//     - cron: '0 */6 * * *' # Every 6 hours
+//     - cron: '0 */3 * * *' # Every 3 hours
 
 // jobs:
 //   make-request:
